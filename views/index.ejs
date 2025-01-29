@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viral Finder</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Link to your CSS file -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="heading">Viral Finder</h1>
+
+        <!-- Display how many posts are left -->
+        <div class="posts-left">
+            <p id="postsLeft"></p>
+        </div>
+
+        <div class="file-item" id="fileItem">
+            <!-- Data will be dynamically inserted here -->
+        </div>
+
+        <div class="buttons">
+            <button id="copyButton" class="button copy-caption">Copy Message</button>
+            <button id="nextButton" class="button next-button">Next</button>
+            <button id="resetButton" class="button reset-button">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Parse the fileData passed from the server
+        const fileData = <%- fileData %>;
+
+        // Filter out posts with less than 1000 likes
+        const filteredData = fileData.filter(post => {
+            const likes = parseLikes(post.likes);
+            return likes >= 1000;
+        });
+
+        // Shuffle the filtered data to display posts randomly
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];  // Swap elements
+            }
+        }
+
+        shuffleArray(filteredData);  // Shuffle data on page load
+
+        // Track the shown posts
+        let shownPosts = [];
+
+        function parseLikes(likes) {
+            if (typeof likes === 'string') {
+                // Convert like amounts like "1.5K", "2K" to numbers
+                if (likes.includes('K')) {
+                    return parseFloat(likes.replace('K', '')) * 1000;
+                }
+                return parseInt(likes);
+            }
+            return likes;
+        }
+
+        function showData(index) {
+            if (index >= filteredData.length || shownPosts.length >= filteredData.length) {
+                document.getElementById("fileItem").innerHTML = '<p>No more data to display.</p>';
+                document.getElementById("nextButton").disabled = true;  // Disable Next button when no data left
+                return;
+            }
+
+            const data = filteredData[index];
+
+            // Check if post has already been shown, if so, skip it
+            if (shownPosts.includes(index)) {
+                currentIndex++;
+                showData(currentIndex);
+                return;
+            }
+
+            // Display Image, Likes, and Message below the image
+            document.getElementById("fileItem").innerHTML = `
+                <div class="file-image">
+                    <img src="${data.imageUrl}" alt="Image" class="image-size">
+                </div>
+                <div class="file-message">
+                    <textarea readonly>${data.message}</textarea>
+                </div>
+                <div class="file-likes">
+                    <i class="fas fa-thumbs-up"></i> <span>${data.likes}</span>
+                </div>
+            `;
+
+            // Add the current index to the shownPosts list
+            shownPosts.push(index);
+            updatePostsLeft();
+
+            // Set up the copy button with the current message
+            const copyButton = document.getElementById("copyButton");
+            copyButton.onclick = () => {
+                const message = data.message || 'No message available';
+                navigator.clipboard.writeText(message);  // Copy the message without showing any alert
+            };
+        }
+
+        // Update the "Posts Left" counter
+        function updatePostsLeft() {
+            const remainingPosts = filteredData.length - shownPosts.length;
+            document.getElementById("postsLeft").innerText = `Post's left: ${remainingPosts}`;
+        }
+
+        // Show the current data based on the index
+        let currentIndex = 0;
+        showData(currentIndex);
+
+        // Handle the Next button click
+        document.getElementById("nextButton").addEventListener("click", () => {
+            currentIndex++;
+            if (currentIndex >= filteredData.length) {
+                currentIndex = 0;  // Loop back to the first post if end is reached
+            }
+            showData(currentIndex);
+        });
+
+        // Handle the Reset button click
+        document.getElementById("resetButton").addEventListener("click", () => {
+            shuffleArray(filteredData);  // Shuffle data again
+            currentIndex = 0;  // Reset index to 0
+            shownPosts = [];  // Clear shown posts list
+            updatePostsLeft();
+            showData(currentIndex);  // Show the first post again
+        });
+    </script>
+</body>
+</html>

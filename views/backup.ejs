@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel Files Viewer</title>
+    <link rel="stylesheet" href="/styles.css"> <!-- Link to your CSS file -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1 class="heading">Viral Finder</h1>
+
+        <div class="file-item" id="fileItem">
+            <!-- Data will be dynamically inserted here -->
+        </div>
+
+        <div class="buttons">
+            <button id="copyButton" class="button copy-caption">Copy Message</button>
+            <button id="nextButton" class="button next-button">Next</button>
+            <button id="resetButton" class="button reset-button">Reset</button>
+        </div>
+    </div>
+
+    <script>
+        // Parse the fileData passed from the server
+        const fileData = <%- fileData %>;
+
+        // Filter out posts with less than 1000 likes
+        const filteredData = fileData.filter(post => {
+            const likes = parseLikes(post.likes);
+            return likes >= 1000;
+        });
+
+        // Shuffle the filtered data to display posts randomly
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];  // Swap elements
+            }
+        }
+
+        shuffleArray(filteredData);  // Shuffle data on page load
+
+        // Try to get saved index from localStorage
+        let currentIndex = localStorage.getItem('currentIndex');
+        let shownPosts = JSON.parse(localStorage.getItem('shownPosts')) || []; // Track shown posts
+
+        if (!currentIndex) {
+            currentIndex = 0;  // Default to first post if no saved state
+        } else {
+            currentIndex = parseInt(currentIndex);  // Convert string to number
+        }
+
+        function parseLikes(likes) {
+            if (typeof likes === 'string') {
+                // Convert like amounts like "1.5K", "2K" to numbers
+                if (likes.includes('K')) {
+                    return parseFloat(likes.replace('K', '')) * 1000;
+                }
+                return parseInt(likes);
+            }
+            return likes;
+        }
+
+        function showData(index) {
+            if (index >= filteredData.length || shownPosts.length >= filteredData.length) {
+                document.getElementById("fileItem").innerHTML = '<p>No more data to display.</p>';
+                document.getElementById("nextButton").disabled = true;  // Disable Next button when no data left
+                return;
+            }
+
+            const data = filteredData[index];
+
+            // Check if post has already been shown, if so, skip it
+            if (shownPosts.includes(index)) {
+                currentIndex++;
+                showData(currentIndex);
+                return;
+            }
+
+            // Display Image, Likes, and Message below the image
+            document.getElementById("fileItem").innerHTML = `
+                <div class="file-image">
+                    <img src="${data.imageUrl}" alt="Image" class="image-size">
+                </div>
+                <div class="file-message">
+                    <textarea readonly>${data.message}</textarea>
+                </div>
+                <!-- Replace Likes with FontAwesome Thumbs Up Icon -->
+                <div class="file-likes">
+                    <i class="fas fa-thumbs-up"></i> <span>${data.likes}</span>
+                </div>
+            `;
+
+            // Add the current index to the shownPosts list
+            shownPosts.push(index);
+            localStorage.setItem('shownPosts', JSON.stringify(shownPosts));  // Save the shown posts
+
+            // Set up the copy button with the current message
+            const copyButton = document.getElementById("copyButton");
+            copyButton.onclick = () => {
+                const message = data.message || 'No message available';  // Ensure 'message' is available
+                navigator.clipboard.writeText(message);  // Copy the message without showing any alert
+            };
+        }
+
+        // Show the current data based on the index
+        showData(currentIndex);
+
+        // Save the current index to localStorage
+        function saveState(index) {
+            localStorage.setItem('currentIndex', index);
+        }
+
+        // Handle the Next button click
+        document.getElementById("nextButton").addEventListener("click", () => {
+            currentIndex++;
+            if (currentIndex >= filteredData.length) {
+                currentIndex = 0;  // Loop back to the first post if end is reached
+            }
+            showData(currentIndex);
+            saveState(currentIndex);  // Save the new state
+        });
+
+        // Handle the Reset button click
+        document.getElementById("resetButton").addEventListener("click", () => {
+            shuffleArray(filteredData);  // Shuffle data again
+            currentIndex = 0;  // Reset index to 0
+            shownPosts = [];  // Clear shown posts list
+            localStorage.removeItem('shownPosts');  // Remove from localStorage
+            showData(currentIndex);
+            saveState(currentIndex);  // Save the reset state
+        });
+
+    </script>
+</body>
+</html>
